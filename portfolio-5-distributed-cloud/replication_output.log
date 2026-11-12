@@ -1,0 +1,87 @@
+
+=== 0. Clean slate (safe to re-run) ===
+
+=== 1. Replication role + pg_hba lines at the TOP of pg_hba.conf ===
+# P5 replication (added by replication_demo.sh)
+local   replication   repl                              trust
+host    replication   repl      127.0.0.1/32            trust
+local   all           repl                              trust
+# PostgreSQL Client Authentication Configuration File
+
+=== 2. Base backup of the primary into the replica data directory ===
+base backup complete: 117M
+
+=== 3. Give the replica its own config (Ubuntu keeps config in /etc, so the backup has none) ===
+standby.signal present: yes
+primary_conninfo:      primary_conninfo = 'user=repl password=replpass channel_binding=prefer host=''/var/run/pos...
+
+=== 4. Start the replica on port 5433 ===
+
+=== 5. Who is who? (each query is run on a different server) ===
+--- PRIMARY (port 5432) ---
+ port | is_replica |      db       
+------+------------+---------------
+ 5432 | f          | sweetcrust_p5
+(1 row)
+
+--- REPLICA (port 5433) ---
+ port | is_replica |      db       
+------+------------+---------------
+ 5433 | t          | sweetcrust_p5
+(1 row)
+
+
+=== 6. Replication status on the PRIMARY (pg_stat_replication) ===
+-[ RECORD 1 ]----+-------------------
+application_name | sweetcrust-replica
+state            | streaming
+sync_state       | async
+sent_lsn         | 0/A001EC0
+write_lsn        | 0/A000000
+flush_lsn        | 0/A000000
+replay_lsn       | 0/A000000
+
+
+=== 7. Demo 1 - a write on the REPLICA is rejected ===
+ERROR:  cannot execute INSERT in a read-only transaction
+(rejected as expected)
+
+=== 8. Demo 2 - a row written on the PRIMARY appears on the REPLICA ===
+--- PRIMARY: insert ---
+ branch_id |          name           
+-----------+-------------------------
+         5 | SweetCrust Test Replica
+(1 row)
+
+INSERT 0 1
+--- REPLICA: read ---
+ branch_id |          name           | city  
+-----------+-------------------------+-------
+         5 | SweetCrust Test Replica | Lagos
+(1 row)
+
+
+=== 9. Same data on both servers + replication lag ===
+--- PRIMARY ---
+ cake_orders 
+-------------
+       50211
+(1 row)
+
+--- REPLICA ---
+ cake_orders 
+-------------
+       50211
+(1 row)
+
+ receive_lsn | replay_lsn | lag_seconds 
+-------------+------------+-------------
+ 0/A002388   | 0/A002388  |       0.276
+(1 row)
+
+
+=== 10. Clean up the demo row and stop the replica (so no WAL piles up on the primary) ===
+DELETE 1
+replica stopped, slot dropped, pg_hba.conf restored.
+
+replication demo finished OK

@@ -1,0 +1,218 @@
+psql:partitioning.sql:22: NOTICE:  extension "btree_gist" already exists, skipping
+CREATE EXTENSION
+psql:partitioning.sql:25: NOTICE:  table "decorator_assignment" does not exist, skipping
+DROP TABLE
+psql:partitioning.sql:26: NOTICE:  table "payment" does not exist, skipping
+DROP TABLE
+psql:partitioning.sql:27: NOTICE:  table "order_flavour" does not exist, skipping
+DROP TABLE
+psql:partitioning.sql:28: NOTICE:  table "cake_order" does not exist, skipping
+DROP TABLE
+psql:partitioning.sql:29: NOTICE:  table "flavour" does not exist, skipping
+DROP TABLE
+psql:partitioning.sql:30: NOTICE:  table "cake_type" does not exist, skipping
+DROP TABLE
+psql:partitioning.sql:31: NOTICE:  table "customer" does not exist, skipping
+DROP TABLE
+psql:partitioning.sql:32: NOTICE:  table "daily_capacity" does not exist, skipping
+DROP TABLE
+psql:partitioning.sql:33: NOTICE:  table "branch" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+DO
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+COPY 4
+COPY 3164
+COPY 5000
+COPY 4
+COPY 8
+COPY 50211
+COPY 85112
+COPY 97893
+COPY 2543
+ setval 
+--------
+      4
+(1 row)
+
+ setval 
+--------
+   5000
+(1 row)
+
+ setval 
+--------
+      4
+(1 row)
+
+ setval 
+--------
+      8
+(1 row)
+
+ setval 
+--------
+  50220
+(1 row)
+
+ setval 
+--------
+  97898
+(1 row)
+
+ setval 
+--------
+   2543
+(1 row)
+
+ANALYZE
+--- Row counts copied from Portfolio 1 ---
+         tbl          | count 
+----------------------+-------
+ decorator_assignment |  2543
+ cake_order           | 50211
+ order_flavour        | 85112
+ payment              | 97893
+(4 rows)
+
+--- Partition pruning demo: only one partition is scanned ---
+                                                                                                                QUERY PLAN                                                                                                                
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate
+   ->  Append
+         Subplans Removed: 29
+         ->  Index Only Scan using cake_order_2026_11_pkey on cake_order_2026_11 cake_order_1
+               Index Cond: ((due_date >= (date_trunc('month'::text, (CURRENT_DATE)::timestamp with time zone))::date) AND (due_date < ((date_trunc('month'::text, (CURRENT_DATE)::timestamp with time zone) + '1 mon'::interval))::date))
+(5 rows)
+
+--- Partitions created ---
+     partition      
+--------------------
+ cake_order_2024_11
+ cake_order_2024_12
+ cake_order_2025_01
+ cake_order_2025_02
+ cake_order_2025_03
+ cake_order_2025_04
+ cake_order_2025_05
+ cake_order_2025_06
+ cake_order_2025_07
+ cake_order_2025_08
+ cake_order_2025_09
+ cake_order_2025_10
+ cake_order_2025_11
+ cake_order_2025_12
+ cake_order_2026_01
+ cake_order_2026_02
+ cake_order_2026_03
+ cake_order_2026_04
+ cake_order_2026_05
+ cake_order_2026_06
+ cake_order_2026_07
+ cake_order_2026_08
+ cake_order_2026_09
+ cake_order_2026_10
+ cake_order_2026_11
+ cake_order_2026_12
+ cake_order_2027_01
+ cake_order_2027_02
+ cake_order_2027_03
+ cake_order_default
+(30 rows)
+
+--- Row counts per partition (real counts) ---
+     partition      | orders 
+--------------------+--------
+ cake_order_2024_11 |    351
+ cake_order_2024_12 |   2272
+ cake_order_2025_01 |   2115
+ cake_order_2025_02 |   1912
+ cake_order_2025_03 |   2137
+ cake_order_2025_04 |   2178
+ cake_order_2025_05 |   2139
+ cake_order_2025_06 |   2064
+ cake_order_2025_07 |   2071
+ cake_order_2025_08 |   2117
+ cake_order_2025_09 |   2058
+ cake_order_2025_10 |   2155
+ cake_order_2025_11 |   2131
+ cake_order_2025_12 |   2149
+ cake_order_2026_01 |   2154
+ cake_order_2026_02 |   1946
+ cake_order_2026_03 |   2101
+ cake_order_2026_04 |   2160
+ cake_order_2026_05 |   2140
+ cake_order_2026_06 |   2039
+ cake_order_2026_07 |   2114
+ cake_order_2026_08 |   2155
+ cake_order_2026_09 |   2041
+ cake_order_2026_10 |   2133
+ cake_order_2026_11 |   1379
+(25 rows)
+
+--- DEFAULT partition must be empty (every row has a monthly partition) ---
+ rows_in_default_partition 
+---------------------------
+                         0
+(1 row)
+
+--- Pruning with EXPLAIN ANALYZE: one month scans one partition ---
+                                                                                                                QUERY PLAN                                                                                                                
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate (actual rows=1 loops=1)
+   ->  Append (actual rows=1379 loops=1)
+         Subplans Removed: 29
+         ->  Index Only Scan using cake_order_2026_11_pkey on cake_order_2026_11 cake_order_1 (actual rows=1379 loops=1)
+               Index Cond: ((due_date >= (date_trunc('month'::text, (CURRENT_DATE)::timestamp with time zone))::date) AND (due_date < ((date_trunc('month'::text, (CURRENT_DATE)::timestamp with time zone) + '1 mon'::interval))::date))
+               Heap Fetches: 0
+ Planning Time: 1.673 ms
+ Execution Time: 0.179 ms
+(8 rows)
+
+--- No pruning: same count over all 29 partitions (for comparison) ---
+                                     QUERY PLAN                                      
+-------------------------------------------------------------------------------------
+ Aggregate (actual rows=1 loops=1)
+   ->  Append (actual rows=50211 loops=1)
+         ->  Seq Scan on cake_order_2024_11 cake_order_1 (actual rows=351 loops=1)
+         ->  Seq Scan on cake_order_2024_12 cake_order_2 (actual rows=2272 loops=1)
+         ->  Seq Scan on cake_order_2025_01 cake_order_3 (actual rows=2115 loops=1)
+         ->  Seq Scan on cake_order_2025_02 cake_order_4 (actual rows=1912 loops=1)
+         ->  Seq Scan on cake_order_2025_03 cake_order_5 (actual rows=2137 loops=1)
+         ->  Seq Scan on cake_order_2025_04 cake_order_6 (actual rows=2178 loops=1)
+         ->  Seq Scan on cake_order_2025_05 cake_order_7 (actual rows=2139 loops=1)
+         ->  Seq Scan on cake_order_2025_06 cake_order_8 (actual rows=2064 loops=1)
+         ->  Seq Scan on cake_order_2025_07 cake_order_9 (actual rows=2071 loops=1)
+         ->  Seq Scan on cake_order_2025_08 cake_order_10 (actual rows=2117 loops=1)
+         ->  Seq Scan on cake_order_2025_09 cake_order_11 (actual rows=2058 loops=1)
+         ->  Seq Scan on cake_order_2025_10 cake_order_12 (actual rows=2155 loops=1)
+         ->  Seq Scan on cake_order_2025_11 cake_order_13 (actual rows=2131 loops=1)
+         ->  Seq Scan on cake_order_2025_12 cake_order_14 (actual rows=2149 loops=1)
+         ->  Seq Scan on cake_order_2026_01 cake_order_15 (actual rows=2154 loops=1)
+         ->  Seq Scan on cake_order_2026_02 cake_order_16 (actual rows=1946 loops=1)
+         ->  Seq Scan on cake_order_2026_03 cake_order_17 (actual rows=2101 loops=1)
+         ->  Seq Scan on cake_order_2026_04 cake_order_18 (actual rows=2160 loops=1)
+         ->  Seq Scan on cake_order_2026_05 cake_order_19 (actual rows=2140 loops=1)
+         ->  Seq Scan on cake_order_2026_06 cake_order_20 (actual rows=2039 loops=1)
+         ->  Seq Scan on cake_order_2026_07 cake_order_21 (actual rows=2114 loops=1)
+         ->  Seq Scan on cake_order_2026_08 cake_order_22 (actual rows=2155 loops=1)
+         ->  Seq Scan on cake_order_2026_09 cake_order_23 (actual rows=2041 loops=1)
+         ->  Seq Scan on cake_order_2026_10 cake_order_24 (actual rows=2133 loops=1)
+         ->  Seq Scan on cake_order_2026_11 cake_order_25 (actual rows=1379 loops=1)
+         ->  Seq Scan on cake_order_2026_12 cake_order_26 (actual rows=0 loops=1)
+         ->  Seq Scan on cake_order_2027_01 cake_order_27 (actual rows=0 loops=1)
+         ->  Seq Scan on cake_order_2027_02 cake_order_28 (actual rows=0 loops=1)
+         ->  Seq Scan on cake_order_2027_03 cake_order_29 (actual rows=0 loops=1)
+         ->  Seq Scan on cake_order_default cake_order_30 (actual rows=0 loops=1)
+ Planning Time: 0.323 ms
+ Execution Time: 3.016 ms
+(34 rows)
+
