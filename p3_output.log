@@ -1,0 +1,185 @@
+==> [1/4] Compile the place_order() procedure + run its 2 demos
+CREATE PROCEDURE
+--- place_order() success case ---
+ customer_id 
+-------------
+           1
+(1 row)
+
+psql:place_order.sql:138: NOTICE:  place_order OK -> order_id=50217 price=37000.00 deposit=18500.00
+DO
+--- place_order() failure: deposit_pct < 0.50 + p_confirm=TRUE (must be refused, nothing saved) ---
+psql:place_order.sql:165: NOTICE:  PASS: place_order refused as designed -> deposit_pct must be >= 0.50 to confirm, got 0.30
+DO
+ new_orders_saved_by_failed_call 
+---------------------------------
+                               0
+(1 row)
+
+
+==> [2/4] COMMIT / ROLLBACK / SAVEPOINT demos
+Pager usage is off.
+--- A) COMMIT path ---
+BEGIN
+INSERT 0 1
+INSERT 0 1
+COMMIT
+--- after COMMIT: order should be visible ---
+ order_id | status  
+----------+---------
+    50218 | PENDING
+(1 row)
+
+--- B) ROLLBACK path (failed deposit cancels the order) ---
+BEGIN
+INSERT 0 1
+--- inserted (uncommitted) order_id =  50219
+psql:commit_rollback.sql:55: ERROR:  new row for relation "payment" violates check constraint "payment_amount_ngn_check"
+DETAIL:  Failing row contains (97896, 50219, 0.00, 2026-11-12 20:44:55.976052+00, deposit, card).
+ROLLBACK
+--- after ROLLBACK: order should NOT be visible ---
+ rows_after_rollback 
+---------------------
+                   0
+(1 row)
+
+--- C) SAVEPOINT path: order survives a failed deposit ---
+BEGIN
+INSERT 0 1
+SAVEPOINT
+psql:commit_rollback.sql:79: ERROR:  new row for relation "payment" violates check constraint "payment_amount_ngn_check"
+DETAIL:  Failing row contains (97897, 50220, 0.00, 2026-11-12 20:44:55.978209+00, deposit, card).
+ROLLBACK
+INSERT 0 1
+COMMIT
+--- after COMMIT: order + deposit both visible ---
+ order_id | status  
+----------+---------
+    50220 | PENDING
+(1 row)
+
+ payment_id | amount_ngn |  kind   
+------------+------------+---------
+      97898 |    9000.00 | deposit
+(1 row)
+
+
+==> [3/4] Isolation levels reference (single session)
+Pager usage is off.
+--- default isolation level of this server ---
+ default_transaction_isolation 
+-------------------------------
+ read committed
+(1 row)
+
+--- READ UNCOMMITTED is accepted but behaves as READ COMMITTED in PostgreSQL ---
+BEGIN
+ transaction_isolation 
+-----------------------
+ read uncommitted
+(1 row)
+
+COMMIT
+--- READ COMMITTED ---
+BEGIN
+ transaction_isolation 
+-----------------------
+ read committed
+(1 row)
+
+COMMIT
+--- REPEATABLE READ ---
+BEGIN
+ transaction_isolation 
+-----------------------
+ repeatable read
+(1 row)
+
+COMMIT
+--- SERIALIZABLE ---
+BEGIN
+ transaction_isolation 
+-----------------------
+ serializable
+(1 row)
+
+COMMIT
+Live demos of what these levels do: run_race_demos.py (Parts 3, 4, 5).
+
+==> [4/4] Two-session race, fixes, isolation and deadlock demos (real, automated)
+
+========================================================================
+PART 1 -- THE BUG: two READ COMMITTED sessions both book the last 2 units
+========================================================================
+[  0.03s] reset: Lekki on the demo day is now 38/40 units used
+[  0.04s] session A = backend pid 15230, session B = backend pid 15231
+[  0.04s] A reads used units: 38/40  -> 'room for a 2-tier cake'
+[  0.05s] B reads used units: 38/40  -> 'room for a 2-tier cake'
+[  0.05s] A inserted a 2-tier order (not committed yet)
+[  0.06s] B inserted a 2-tier order (capacity trigger cannot see A's uncommitted row)
+[  0.06s] A COMMIT
+[  0.06s] B COMMIT
+[  0.07s] RESULT: 42/40 units used  <-- OVERBOOKED (the bug)
+
+========================================================================
+PART 2 -- FIX 1: SELECT ... FOR UPDATE on the daily_capacity row
+========================================================================
+[  0.12s] reset: Lekki on the demo day is now 38/40 units used
+[  0.13s] A took the row lock; A reads 38/40
+[  0.13s] B asks for the same row lock ... (it will have to wait)
+[  1.63s] A inserts its 2-tier order and COMMITs (this releases the lock)
+[  1.63s] B got the lock after waiting 1.50s; B now reads 40/40
+[  1.63s] B decides: day fully booked -> ROLLBACK (no overbooking)
+[  1.64s] RESULT: 40/40 units used  <-- never overbooked
+
+========================================================================
+PART 3 -- FIX 2: SERIALIZABLE isolation + retry on SQLSTATE 40001
+========================================================================
+[  1.67s] reset: Lekki on the demo day is now 38/40 units used
+[  1.68s] A reads 38/40, B reads 38/40 (both SERIALIZABLE)
+[  1.68s] A inserted a 2-tier order
+[  1.69s] B inserted a 2-tier order
+[  1.69s] A COMMIT -> succeeded
+[  1.69s] B COMMIT -> FAILED  SQLSTATE 40001: could not serialize access due to read/write dependencies among transactions
+[  1.69s] B retries in a new SERIALIZABLE transaction
+[  1.69s] B re-reads 40/40 -> day fully booked, order refused
+[  1.69s] RESULT: 40/40 units used  <-- never overbooked
+
+========================================================================
+PART 4 -- READ COMMITTED: non-repeatable read
+========================================================================
+[  1.72s] reset: Lekki on the demo day is now 38/40 units used
+[  1.74s] demo order 50302 is PENDING
+[  1.74s] A (READ COMMITTED) first read:  PENDING
+[  1.74s] B updated the order to CONFIRMED and COMMITTED
+[  1.74s] A (READ COMMITTED) second read: CONFIRMED  <-- changed inside one transaction
+
+========================================================================
+PART 5 -- REPEATABLE READ: frozen snapshot, then SQLSTATE 40001 on update
+========================================================================
+[  1.75s] demo order 50303 is PENDING
+[  1.75s] A (REPEATABLE READ) first read:  PENDING
+[  1.75s] B updated the order to CONFIRMED and COMMITTED
+[  1.75s] A (REPEATABLE READ) second read: PENDING  <-- same as first read (snapshot frozen)
+[  1.75s] A tries to UPDATE the same row -> SQLSTATE 40001: could not serialize access due to concurrent update
+
+========================================================================
+PART 6 -- DEADLOCK: two sessions lock two orders in opposite order
+========================================================================
+[  1.76s] orders 50304 and 50305 created; A = pid 15280, B = pid 15281
+[  1.76s] A locked order 50304
+[  1.77s] B locked order 50305
+[  1.77s] A now wants order 50305 (held by B) ... waits
+[  2.27s] B now wants order 50304 (held by A) ... circular wait
+[  2.77s] A: DEADLOCK VICTIM  SQLSTATE 40P01: deadlock detected
+[  2.77s] B: committed
+[  2.77s] PostgreSQL's deadlock detector aborted one session; the other one finished.
+
+========================================================================
+CLEAN-UP
+========================================================================
+[  2.77s] removed the demo orders (23 rows); the bulk data is untouched
+
+race_demos finished OK
+
+==> Portfolio 3 done. Evidence saved in race_demos_output.log

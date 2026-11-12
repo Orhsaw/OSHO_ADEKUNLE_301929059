@@ -1,0 +1,20 @@
+-- =====================================================================
+-- Portfolio 3 — deadlock_demo.sql  (reference only)
+-- The deadlock is produced automatically by run_race_demos.py, Part 6,
+-- using two real sessions and two freshly inserted orders; the output
+-- (including SQLSTATE 40P01) is saved in race_demos_output.log.
+--
+-- The sequence it performs, for reading:
+--
+--   Session A                               Session B
+--   ---------                               ---------
+--   BEGIN;                                  BEGIN;
+--   UPDATE ... WHERE order_id = o1;         UPDATE ... WHERE order_id = o2;
+--   UPDATE ... WHERE order_id = o2;  (waits for B)
+--                                           UPDATE ... WHERE order_id = o1;  (waits for A)
+--   => PostgreSQL detects the circular wait after deadlock_timeout (1 s)
+--      and aborts one session with SQLSTATE 40P01 "deadlock detected".
+--
+-- How to avoid it: always lock rows in a fixed order (e.g. ORDER BY order_id).
+-- =====================================================================
+\echo 'Run: python3 run_race_demos.py  (Part 6 = deadlock). See race_demos_output.log.'
