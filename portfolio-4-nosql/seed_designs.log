@@ -1,0 +1,27 @@
+  inserted 5000/40000
+  inserted 10000/40000
+  inserted 15000/40000
+  inserted 20000/40000
+  inserted 25000/40000
+  inserted 30000/40000
+  inserted 35000/40000
+  inserted 40000/40000
+==> Done. Inserted 40000 design documents.
+[
+  {
+    _id: 'birthday',
+    n: 10000
+  },
+  {
+    _id: 'corporate',
+    n: 10000
+  },
+  {
+    _id: 'graduation',
+    n: 10000
+  },
+  {
+    _id: 'wedding',
+    n: 10000
+  }
+]

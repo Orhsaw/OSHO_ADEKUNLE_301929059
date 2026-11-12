@@ -1,0 +1,256 @@
+
+===== A1: most requested themes per occasion =====
+[
+  {
+    occasion: 'birthday',
+    top_themes: [
+      {
+        theme: 'Mermaid',
+        count: 1034
+      },
+      {
+        theme: 'Spiderman',
+        count: 1026
+      },
+      {
+        theme: 'Football',
+        count: 1021
+      },
+      {
+        theme: 'Avengers',
+        count: 1013
+      },
+      {
+        theme: 'Barbie',
+        count: 1010
+      }
+    ]
+  },
+  {
+    occasion: 'corporate',
+    top_themes: [
+      {
+        theme: 'Bank Logo',
+        count: 2600
+      },
+      {
+        theme: 'TechCrunch',
+        count: 2557
+      },
+      {
+        theme: 'Telco Brand',
+        count: 2446
+      },
+      {
+        theme: 'Government Agency',
+        count: 2397
+      }
+    ]
+  },
+  {
+    occasion: 'graduation',
+    top_themes: [
+      {
+        theme: 'Faculty Colours',
+        count: 2553
+      },
+      {
+        theme: 'Mortarboard',
+        count: 2503
+      },
+      {
+        theme: 'Cap & Scroll',
+        count: 2486
+      },
+      {
+        theme: 'Navy & Gold',
+        count: 2458
+      }
+    ]
+  },
+  {
+    occasion: 'wedding',
+    top_themes: [
+      {
+        theme: 'Pastel Garden',
+        count: 1294
+      },
+      {
+        theme: 'Gold Leaf',
+        count: 1286
+      },
+      {
+        theme: 'White Rose',
+        count: 1276
+      },
+      {
+        theme: 'Lace & Pearl',
+        count: 1255
+      },
+      {
+        theme: 'Tropical Floral',
+        count: 1248
+      }
+    ]
+  }
+]
+
+===== A2: common allergy notes =====
+[
+  {
+    _id: 'contains nuts',
+    designs: 11518
+  },
+  {
+    _id: 'vegan',
+    designs: 11482
+  },
+  {
+    _id: 'dairy-free',
+    designs: 11476
+  },
+  {
+    _id: 'contains alcohol',
+    designs: 11431
+  },
+  {
+    _id: 'egg-free',
+    designs: 11387
+  },
+  {
+    _id: 'sugar-free',
+    designs: 11371
+  },
+  {
+    _id: 'gluten-free',
+    designs: 11363
+  }
+]
+
+===== A3: popular colours per occasion =====
+[
+  {
+    occasion: 'birthday',
+    top_colours: [
+      {
+        colour: '#F8C8DC',
+        uses: 2065
+      },
+      {
+        colour: '#F4A7B9',
+        uses: 2052
+      },
+      {
+        colour: '#FFB6C1',
+        uses: 2021
+      },
+      {
+        colour: '#FFF8E7',
+        uses: 2020
+      },
+      {
+        colour: '#E6B89C',
+        uses: 2017
+      }
+    ]
+  },
+  {
+    occasion: 'corporate',
+    top_colours: [
+      {
+        colour: '#F4A7B9',
+        uses: 2102
+      },
+      {
+        colour: '#A2D5C6',
+        uses: 2060
+      },
+      {
+        colour: '#E6B89C',
+        uses: 2035
+      },
+      {
+        colour: '#D9BF77',
+        uses: 2021
+      },
+      {
+        colour: '#F8C8DC',
+        uses: 2008
+      }
+    ]
+  },
+  {
+    occasion: 'graduation',
+    top_colours: [
+      {
+        colour: '#A2D5C6',
+        uses: 2063
+      },
+      {
+        colour: '#FFF8E7',
+        uses: 2039
+      },
+      {
+        colour: '#D9BF77',
+        uses: 2010
+      },
+      {
+        colour: '#F4A7B9',
+        uses: 2009
+      },
+      {
+        colour: '#B5D8EB',
+        uses: 2004
+      }
+    ]
+  },
+  {
+    occasion: 'wedding',
+    top_colours: [
+      {
+        colour: '#A2D5C6',
+        uses: 4079
+      },
+      {
+        colour: '#C03A2B',
+        uses: 4073
+      },
+      {
+        colour: '#FFB6C1',
+        uses: 4073
+      },
+      {
+        colour: '#E6B89C',
+        uses: 4069
+      },
+      {
+        colour: '#D9BF77',
+        uses: 4069
+      }
+    ]
+  }
+]
+
+===== Bonus A4: average tier count per occasion =====
+[
+  {
+    _id: 'birthday',
+    avg_tiers: 2.0069,
+    n: 10000
+  },
+  {
+    _id: 'corporate',
+    avg_tiers: 2.0002,
+    n: 10000
+  },
+  {
+    _id: 'graduation',
+    avg_tiers: 1.9917,
+    n: 10000
+  },
+  {
+    _id: 'wedding',
+    avg_tiers: 4.0046,
+    n: 10000
+  }
+]
