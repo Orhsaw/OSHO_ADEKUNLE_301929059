@@ -1,0 +1,129 @@
+==> [1/5] schema.sql (9 tables, 3NF, all constraints)
+psql:schema.sql:9: NOTICE:  table "decorator_assignment" does not exist, skipping
+DROP TABLE
+psql:schema.sql:10: NOTICE:  table "payment" does not exist, skipping
+DROP TABLE
+psql:schema.sql:11: NOTICE:  table "order_flavour" does not exist, skipping
+DROP TABLE
+psql:schema.sql:12: NOTICE:  table "cake_order" does not exist, skipping
+DROP TABLE
+psql:schema.sql:13: NOTICE:  table "flavour" does not exist, skipping
+DROP TABLE
+psql:schema.sql:14: NOTICE:  table "cake_type" does not exist, skipping
+DROP TABLE
+psql:schema.sql:15: NOTICE:  table "customer" does not exist, skipping
+DROP TABLE
+psql:schema.sql:16: NOTICE:  table "daily_capacity" does not exist, skipping
+DROP TABLE
+psql:schema.sql:17: NOTICE:  table "branch" does not exist, skipping
+DROP TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE TABLE
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+==> [2/5] constraints.sql (triggers + EXCLUDE + FSM)
+CREATE FUNCTION
+CREATE FUNCTION
+psql:constraints.sql:56: NOTICE:  trigger "trg_check_capacity" for relation "cake_order" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+psql:constraints.sql:84: NOTICE:  trigger "trg_deposit_before_confirm" for relation "cake_order" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+CREATE FUNCTION
+psql:constraints.sql:140: NOTICE:  trigger "trg_status_fsm" for relation "cake_order" does not exist, skipping
+DROP TRIGGER
+CREATE TRIGGER
+==> [3/5] seed_data.sql (branches, cake_types, flavours, 730-day capacity)
+INSERT 0 4
+INSERT 0 3164
+INSERT 0 4
+INSERT 0 8
+INSERT 0 10
+==> [4/5] bulk_generator.sql (50k+ orders over 2 years, NGN prices, peaks)
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+psql:bulk_generator.sql:64: NOTICE:  truncate cascades to table "cake_order"
+psql:bulk_generator.sql:64: NOTICE:  truncate cascades to table "order_flavour"
+psql:bulk_generator.sql:64: NOTICE:  truncate cascades to table "payment"
+psql:bulk_generator.sql:64: NOTICE:  truncate cascades to table "decorator_assignment"
+TRUNCATE TABLE
+INSERT 0 5000
+psql:bulk_generator.sql:81: NOTICE:  truncate cascades to table "order_flavour"
+psql:bulk_generator.sql:81: NOTICE:  truncate cascades to table "payment"
+psql:bulk_generator.sql:81: NOTICE:  truncate cascades to table "decorator_assignment"
+TRUNCATE TABLE
+TRUNCATE TABLE
+TRUNCATE TABLE
+TRUNCATE TABLE
+psql:bulk_generator.sql:210: NOTICE:  Inserted 50208 cake orders
+DO
+INSERT 0 2543
+ANALYZE
+         what          |     n      
+-----------------------+------------
+ branches              | 4
+ cake_types            | 4
+ flavours              | 8
+ decorator_assignments | 2543
+ daily_capacity rows   | 3164
+ customers             | 5000
+ latest due_date       | 2026-11-25
+ earliest due_date     | 2024-11-26
+ cake_orders           | 50208
+ order_flavour rows    | 85112
+ payments              | 97890
+(11 rows)
+
+           check_name           | n 
+--------------------------------+---
+ over-capacity days (must be 0) | 0
+(1 row)
+
+==> [5/5] constraint_tests.sql (8 tests; each must be refused by the database)
+--- Test 1: capacity exceeded: a 5-tier order on a day with 1 unit left ---
+psql:constraint_tests.sql:36: NOTICE:  TEST 1 PASS (refused: SQLSTATE P0001, Capacity exceeded: branch 1 on 2026-12-22 would have 6/1 units used)
+DO
+--- Test 2: decorator double-booked (overlapping window, same decorator) ---
+psql:constraint_tests.sql:62: NOTICE:  TEST 2 PASS (refused: SQLSTATE 23P01, conflicting key value violates exclusion constraint "exc_no_overlap_per_decorator")
+DO
+--- Test 3: due_date only 1 day after order_date ---
+psql:constraint_tests.sql:85: NOTICE:  TEST 3 PASS (refused: SQLSTATE 23514, new row for relation "cake_order" violates check constraint "chk_due_after_order")
+DO
+--- Test 4: confirm an order with a deposit under 50% ---
+psql:constraint_tests.sql:110: NOTICE:  TEST 4 PASS (refused: SQLSTATE P0001, Cannot confirm order 50212: deposit 1000.00 is less than 50% of 18000.00)
+DO
+--- Test 5: illegal status jump READY -> BAKING ---
+psql:constraint_tests.sql:139: NOTICE:  TEST 5 PASS (refused: SQLSTATE P0001, Invalid status transition READY -> BAKING on order 50213)
+DO
+--- Test 6: revive a CANCELLED order ---
+psql:constraint_tests.sql:165: NOTICE:  TEST 6 PASS (refused: SQLSTATE P0001, Order 50214 is CANCELLED and cannot be revived to CONFIRMED)
+DO
+--- Test 7: tiers out of range (0) ---
+psql:constraint_tests.sql:188: NOTICE:  TEST 7 PASS (refused: SQLSTATE 23514, new row for relation "cake_order" violates check constraint "cake_order_tiers_check")
+DO
+--- Test 8: negative price ---
+psql:constraint_tests.sql:211: NOTICE:  TEST 8 PASS (refused: SQLSTATE 23514, new row for relation "cake_order" violates check constraint "cake_order_unit_price_ngn_check")
+DO
+--- Constraint tests finished: look for 8 lines starting TEST n PASS ---
+
+==> Portfolio 1 done.
+    Next: capture the bulk_generator output table + the 8 constraint
+    test failures into a screenshot, then commit:
+    git add portfolio-1-database-design/ && git commit -m 'P1: schema, triggers, bulk data, constraint tests'
+
+    To view ER + 3NF: cat er_diagram.md 3nf_notes.md
