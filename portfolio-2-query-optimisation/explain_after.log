@@ -1,0 +1,136 @@
+Pager usage is off.
+--- AFTER: Q1 remaining capacity per branch, next 7 days ---
+                                                                             QUERY PLAN                                                                              
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=99.59..100.39 rows=32 width=34) (actual time=0.368..0.413 rows=32 loops=1)
+   Group Key: b.name, dc.cap_date, dc.max_units
+   ->  Sort  (cost=99.59..99.67 rows=32 width=28) (actual time=0.361..0.374 rows=322 loops=1)
+         Sort Key: b.name, dc.cap_date, dc.max_units
+         Sort Method: quicksort  Memory: 42kB
+         ->  Hash Right Join  (cost=69.00..98.79 rows=32 width=28) (actual time=0.104..0.209 rows=322 loops=1)
+               Hash Cond: ((co.branch_id = b.branch_id) AND (co.due_date = dc.cap_date))
+               ->  Index Only Scan using idx_order_due_date_cover on cake_order co  (cost=0.42..24.82 rows=357 width=10) (actual time=0.022..0.075 rows=322 loops=1)
+                     Index Cond: ((due_date >= CURRENT_DATE) AND (due_date <= (CURRENT_DATE + 7)))
+                     Filter: (status <> 'CANCELLED'::text)
+                     Rows Removed by Filter: 12
+                     Heap Fetches: 0
+               ->  Hash  (cost=68.10..68.10 rows=32 width=30) (actual time=0.071..0.071 rows=32 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                     ->  Nested Loop  (cost=4.39..68.10 rows=32 width=30) (actual time=0.036..0.056 rows=32 loops=1)
+                           ->  Seq Scan on branch b  (cost=0.00..1.04 rows=4 width=22) (actual time=0.003..0.003 rows=4 loops=1)
+                           ->  Bitmap Heap Scan on daily_capacity dc  (cost=4.39..16.68 rows=8 width=12) (actual time=0.010..0.011 rows=8 loops=4)
+                                 Recheck Cond: ((b.branch_id = branch_id) AND (cap_date >= CURRENT_DATE) AND (cap_date <= (CURRENT_DATE + 7)))
+                                 Heap Blocks: exact=4
+                                 ->  Bitmap Index Scan on daily_capacity_pkey  (cost=0.00..4.39 rows=8 width=0) (actual time=0.007..0.007 rows=8 loops=4)
+                                       Index Cond: ((branch_id = b.branch_id) AND (cap_date >= CURRENT_DATE) AND (cap_date <= (CURRENT_DATE + 7)))
+ Planning Time: 1.017 ms
+ Execution Time: 0.500 ms
+(23 rows)
+
+--- AFTER: Q2 orders per cake type per month, last 90 days ---
+                                                                               QUERY PLAN                                                                                
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=519.16..526.53 rows=2948 width=49) (actual time=4.845..4.848 rows=12 loops=1)
+   Sort Key: (to_char((co.order_date)::timestamp with time zone, 'YYYY-MM'::text)), ct.name
+   Sort Method: quicksort  Memory: 25kB
+   ->  HashAggregate  (cost=305.05..349.27 rows=2948 width=49) (actual time=4.821..4.833 rows=12 loops=1)
+         Group Key: to_char((co.order_date)::timestamp with time zone, 'YYYY-MM'::text), ct.name
+         Batches: 1  Memory Usage: 121kB
+         ->  Hash Join  (cost=1.39..256.83 rows=6430 width=41) (actual time=0.101..3.629 rows=6398 loops=1)
+               Hash Cond: (co.cake_type_id = ct.cake_type_id)
+               ->  Index Only Scan using idx_order_order_date_cover on cake_order co  (cost=0.29..188.82 rows=6430 width=8) (actual time=0.026..0.851 rows=6398 loops=1)
+                     Index Cond: (order_date >= (CURRENT_DATE - 90))
+                     Heap Fetches: 48
+               ->  Hash  (cost=1.04..1.04 rows=4 width=13) (actual time=0.006..0.006 rows=4 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     ->  Seq Scan on cake_type ct  (cost=0.00..1.04 rows=4 width=13) (actual time=0.003..0.003 rows=4 loops=1)
+ Planning Time: 0.259 ms
+ Execution Time: 4.902 ms
+(16 rows)
+
+--- AFTER: Q3 revenue per branch, orders due in the last 30 days ---
+                                                                                  QUERY PLAN                                                                                  
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=2281.67..2281.68 rows=4 width=50) (actual time=18.427..18.430 rows=4 loops=1)
+   Sort Key: (sum(p.amount_ngn)) DESC
+   Sort Method: quicksort  Memory: 25kB
+   ->  HashAggregate  (cost=2281.58..2281.63 rows=4 width=50) (actual time=18.409..18.413 rows=4 loops=1)
+         Group Key: b.name
+         Batches: 1  Memory Usage: 24kB
+         ->  Hash Join  (cost=160.45..2261.28 rows=4059 width=24) (actual time=16.410..17.778 rows=4162 loops=1)
+               Hash Cond: (co.branch_id = b.branch_id)
+               ->  Hash Join  (cost=159.36..2238.25 rows=4059 width=10) (actual time=16.397..17.305 rows=4162 loops=1)
+                     Hash Cond: (p.order_id = co.order_id)
+                     ->  Seq Scan on payment p  (cost=0.00..1821.90 rows=97890 width=10) (actual time=0.003..7.897 rows=97890 loops=1)
+                     ->  Hash  (cost=133.34..133.34 rows=2082 width=8) (actual time=1.314..1.315 rows=2081 loops=1)
+                           Buckets: 4096  Batches: 1  Memory Usage: 114kB
+                           ->  Index Scan using idx_order_due_date_cover on cake_order co  (cost=0.42..133.34 rows=2082 width=8) (actual time=0.028..1.032 rows=2081 loops=1)
+                                 Index Cond: ((due_date >= (CURRENT_DATE - 30)) AND (due_date <= CURRENT_DATE))
+                                 Filter: (status <> 'CANCELLED'::text)
+                                 Rows Removed by Filter: 103
+               ->  Hash  (cost=1.04..1.04 rows=4 width=22) (actual time=0.008..0.008 rows=4 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     ->  Seq Scan on branch b  (cost=0.00..1.04 rows=4 width=22) (actual time=0.004..0.005 rows=4 loops=1)
+ Planning Time: 0.633 ms
+ Execution Time: 18.467 ms
+(22 rows)
+
+--- AFTER: Q4 most popular flavours ---
+                                                                  QUERY PLAN                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=9475.83..9475.85 rows=8 width=25) (actual time=104.178..104.181 rows=8 loops=1)
+   Sort Key: (count(*)) DESC
+   Sort Method: quicksort  Memory: 25kB
+   ->  GroupAggregate  (cost=8624.51..9475.71 rows=8 width=25) (actual time=91.594..104.169 rows=8 loops=1)
+         Group Key: f.name
+         ->  Sort  (cost=8624.51..8837.29 rows=85112 width=13) (actual time=89.645..97.016 rows=85112 loops=1)
+               Sort Key: f.name, ofl.order_id
+               Sort Method: external merge  Disk: 2008kB
+               ->  Hash Join  (cost=1.18..1655.08 rows=85112 width=13) (actual time=0.015..16.559 rows=85112 loops=1)
+                     Hash Cond: (ofl.flavour_id = f.flavour_id)
+                     ->  Seq Scan on order_flavour ofl  (cost=0.00..1312.12 rows=85112 width=8) (actual time=0.006..5.398 rows=85112 loops=1)
+                     ->  Hash  (cost=1.08..1.08 rows=8 width=13) (actual time=0.007..0.007 rows=8 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                           ->  Seq Scan on flavour f  (cost=0.00..1.08 rows=8 width=13) (actual time=0.003..0.004 rows=8 loops=1)
+ Planning Time: 0.352 ms
+ Execution Time: 104.619 ms
+(16 rows)
+
+--- AFTER: Q5 average deposit percentage, orders due in the last 30 days ---
+                                                                            QUERY PLAN                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=2374.09..2374.10 rows=1 width=32) (actual time=12.879..12.881 rows=1 loops=1)
+   ->  Hash Join  (cost=159.36..2358.40 rows=2092 width=12) (actual time=11.762..12.421 rows=2081 loops=1)
+         Hash Cond: (dep.order_id = co.order_id)
+         ->  Seq Scan on payment dep  (cost=0.00..2066.62 rows=50439 width=10) (actual time=0.004..8.281 rows=50166 loops=1)
+               Filter: (kind = 'deposit'::text)
+               Rows Removed by Filter: 47724
+         ->  Hash  (cost=133.34..133.34 rows=2082 width=10) (actual time=0.668..0.669 rows=2081 loops=1)
+               Buckets: 4096  Batches: 1  Memory Usage: 122kB
+               ->  Index Scan using idx_order_due_date_cover on cake_order co  (cost=0.42..133.34 rows=2082 width=10) (actual time=0.008..0.435 rows=2081 loops=1)
+                     Index Cond: ((due_date >= (CURRENT_DATE - 30)) AND (due_date <= CURRENT_DATE))
+                     Filter: (status <> 'CANCELLED'::text)
+                     Rows Removed by Filter: 103
+ Planning Time: 0.233 ms
+ Execution Time: 12.903 ms
+(14 rows)
+
+--- AFTER: Q6 cancellation rate per branch ---
+                                                                  QUERY PLAN                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1847.83..1847.84 rows=4 width=66) (actual time=17.763..17.765 rows=4 loops=1)
+   Sort Key: (round(((100.0 * (count(*) FILTER (WHERE (co.status = 'CANCELLED'::text)))::numeric) / (NULLIF(count(*), 0))::numeric), 2)) DESC
+   Sort Method: quicksort  Memory: 25kB
+   ->  HashAggregate  (cost=1847.69..1847.79 rows=4 width=66) (actual time=17.755..17.759 rows=4 loops=1)
+         Group Key: b.name
+         Batches: 1  Memory Usage: 24kB
+         ->  Hash Join  (cost=1.09..1345.61 rows=50208 width=27) (actual time=0.014..11.011 rows=50208 loops=1)
+               Hash Cond: (co.branch_id = b.branch_id)
+               ->  Seq Scan on cake_order co  (cost=0.00..1073.08 rows=50208 width=13) (actual time=0.003..2.818 rows=50208 loops=1)
+               ->  Hash  (cost=1.04..1.04 rows=4 width=22) (actual time=0.005..0.006 rows=4 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     ->  Seq Scan on branch b  (cost=0.00..1.04 rows=4 width=22) (actual time=0.002..0.003 rows=4 loops=1)
+ Planning Time: 0.163 ms
+ Execution Time: 17.790 ms
+(14 rows)
+

@@ -1,0 +1,527 @@
+==> [1/4] EXPLAIN ANALYZE BEFORE indexes
+Pager usage is off.
+--- BEFORE: Q1 remaining capacity per branch, next 7 days ---
+                                                                          QUERY PLAN                                                                          
+--------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=335.62..336.42 rows=32 width=34) (actual time=0.405..0.450 rows=32 loops=1)
+   Group Key: b.name, dc.cap_date, dc.max_units
+   ->  Sort  (cost=335.62..335.70 rows=32 width=28) (actual time=0.397..0.410 rows=322 loops=1)
+         Sort Key: b.name, dc.cap_date, dc.max_units
+         Sort Method: quicksort  Memory: 42kB
+         ->  Nested Loop Left Join  (cost=4.69..334.82 rows=32 width=28) (actual time=0.060..0.248 rows=322 loops=1)
+               ->  Nested Loop  (cost=4.39..68.10 rows=32 width=30) (actual time=0.038..0.075 rows=32 loops=1)
+                     ->  Seq Scan on branch b  (cost=0.00..1.04 rows=4 width=22) (actual time=0.003..0.003 rows=4 loops=1)
+                     ->  Bitmap Heap Scan on daily_capacity dc  (cost=4.39..16.68 rows=8 width=12) (actual time=0.010..0.011 rows=8 loops=4)
+                           Recheck Cond: ((b.branch_id = branch_id) AND (cap_date >= CURRENT_DATE) AND (cap_date <= (CURRENT_DATE + 7)))
+                           Heap Blocks: exact=4
+                           ->  Bitmap Index Scan on daily_capacity_pkey  (cost=0.00..4.39 rows=8 width=0) (actual time=0.007..0.007 rows=8 loops=4)
+                                 Index Cond: ((branch_id = b.branch_id) AND (cap_date >= CURRENT_DATE) AND (cap_date <= (CURRENT_DATE + 7)))
+               ->  Index Scan using idx_cake_order_branch_due on cake_order co  (cost=0.30..8.32 rows=1 width=10) (actual time=0.002..0.004 rows=10 loops=32)
+                     Index Cond: ((branch_id = b.branch_id) AND (due_date = dc.cap_date) AND (due_date >= CURRENT_DATE) AND (due_date <= (CURRENT_DATE + 7)))
+                     Filter: (status <> 'CANCELLED'::text)
+                     Rows Removed by Filter: 0
+ Planning Time: 0.862 ms
+ Execution Time: 0.527 ms
+(19 rows)
+
+--- BEFORE: Q2 orders per cake type per month, last 90 days ---
+                                                            QUERY PLAN                                                            
+----------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1779.29..1786.66 rows=2948 width=49) (actual time=9.938..9.941 rows=12 loops=1)
+   Sort Key: (to_char((co.order_date)::timestamp with time zone, 'YYYY-MM'::text)), ct.name
+   Sort Method: quicksort  Memory: 25kB
+   ->  HashAggregate  (cost=1565.19..1609.41 rows=2948 width=49) (actual time=9.911..9.928 rows=12 loops=1)
+         Group Key: to_char((co.order_date)::timestamp with time zone, 'YYYY-MM'::text), ct.name
+         Batches: 1  Memory Usage: 121kB
+         ->  Hash Join  (cost=1.09..1517.25 rows=6392 width=41) (actual time=5.672..8.945 rows=6398 loops=1)
+               Hash Cond: (co.cake_type_id = ct.cake_type_id)
+               ->  Seq Scan on cake_order co  (cost=0.00..1449.64 rows=6392 width=8) (actual time=5.564..6.555 rows=6398 loops=1)
+                     Filter: (order_date >= (CURRENT_DATE - 90))
+                     Rows Removed by Filter: 43810
+               ->  Hash  (cost=1.04..1.04 rows=4 width=13) (actual time=0.017..0.018 rows=4 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     ->  Seq Scan on cake_type ct  (cost=0.00..1.04 rows=4 width=13) (actual time=0.007..0.008 rows=4 loops=1)
+ Planning Time: 0.253 ms
+ Execution Time: 10.009 ms
+(16 rows)
+
+--- BEFORE: Q3 revenue per branch, orders due in the last 30 days ---
+                                                                               QUERY PLAN                                                                               
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=3615.52..3615.53 rows=4 width=50) (actual time=16.496..16.499 rows=4 loops=1)
+   Sort Key: (sum(p.amount_ngn)) DESC
+   Sort Method: quicksort  Memory: 25kB
+   ->  HashAggregate  (cost=3615.43..3615.48 rows=4 width=50) (actual time=16.478..16.482 rows=4 loops=1)
+         Group Key: b.name
+         Batches: 1  Memory Usage: 24kB
+         ->  Hash Join  (cost=1494.63..3595.29 rows=4028 width=24) (actual time=14.479..15.849 rows=4162 loops=1)
+               Hash Cond: (co.branch_id = b.branch_id)
+               ->  Hash Join  (cost=1493.54..3572.43 rows=4028 width=10) (actual time=14.468..15.386 rows=4162 loops=1)
+                     Hash Cond: (p.order_id = co.order_id)
+                     ->  Seq Scan on payment p  (cost=0.00..1821.90 rows=97890 width=10) (actual time=0.003..6.630 rows=97890 loops=1)
+                     ->  Hash  (cost=1467.72..1467.72 rows=2066 width=8) (actual time=0.685..0.686 rows=2081 loops=1)
+                           Buckets: 4096  Batches: 1  Memory Usage: 114kB
+                           ->  Bitmap Heap Scan on cake_order co  (cost=842.89..1467.72 rows=2066 width=8) (actual time=0.181..0.465 rows=2081 loops=1)
+                                 Recheck Cond: ((due_date >= (CURRENT_DATE - 30)) AND (due_date <= CURRENT_DATE))
+                                 Filter: (status <> 'CANCELLED'::text)
+                                 Rows Removed by Filter: 103
+                                 Heap Blocks: exact=26
+                                 ->  Bitmap Index Scan on idx_cake_order_branch_due  (cost=0.00..842.38 rows=2153 width=0) (actual time=0.171..0.172 rows=2184 loops=1)
+                                       Index Cond: ((due_date >= (CURRENT_DATE - 30)) AND (due_date <= CURRENT_DATE))
+               ->  Hash  (cost=1.04..1.04 rows=4 width=22) (actual time=0.006..0.006 rows=4 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     ->  Seq Scan on branch b  (cost=0.00..1.04 rows=4 width=22) (actual time=0.003..0.004 rows=4 loops=1)
+ Planning Time: 0.455 ms
+ Execution Time: 16.532 ms
+(25 rows)
+
+--- BEFORE: Q4 most popular flavours ---
+                                                                  QUERY PLAN                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=9475.83..9475.85 rows=8 width=25) (actual time=122.326..122.344 rows=8 loops=1)
+   Sort Key: (count(*)) DESC
+   Sort Method: quicksort  Memory: 25kB
+   ->  GroupAggregate  (cost=8624.51..9475.71 rows=8 width=25) (actual time=97.354..122.324 rows=8 loops=1)
+         Group Key: f.name
+         ->  Sort  (cost=8624.51..8837.29 rows=85112 width=13) (actual time=93.735..108.848 rows=85112 loops=1)
+               Sort Key: f.name, ofl.order_id
+               Sort Method: external merge  Disk: 2008kB
+               ->  Hash Join  (cost=1.18..1655.08 rows=85112 width=13) (actual time=0.020..17.136 rows=85112 loops=1)
+                     Hash Cond: (ofl.flavour_id = f.flavour_id)
+                     ->  Seq Scan on order_flavour ofl  (cost=0.00..1312.12 rows=85112 width=8) (actual time=0.006..5.459 rows=85112 loops=1)
+                     ->  Hash  (cost=1.08..1.08 rows=8 width=13) (actual time=0.006..0.021 rows=8 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                           ->  Seq Scan on flavour f  (cost=0.00..1.08 rows=8 width=13) (actual time=0.003..0.004 rows=8 loops=1)
+ Planning Time: 0.331 ms
+ Execution Time: 122.813 ms
+(16 rows)
+
+--- BEFORE: Q5 average deposit percentage, orders due in the last 30 days ---
+                                                                         QUERY PLAN                                                                         
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=3707.23..3707.24 rows=1 width=32) (actual time=17.442..17.445 rows=1 loops=1)
+   ->  Hash Join  (cost=1493.54..3691.75 rows=2063 width=12) (actual time=16.243..16.979 rows=2081 loops=1)
+         Hash Cond: (dep.order_id = co.order_id)
+         ->  Seq Scan on payment dep  (cost=0.00..2066.62 rows=50123 width=10) (actual time=0.008..11.416 rows=50166 loops=1)
+               Filter: (kind = 'deposit'::text)
+               Rows Removed by Filter: 47724
+         ->  Hash  (cost=1467.72..1467.72 rows=2066 width=10) (actual time=1.268..1.270 rows=2081 loops=1)
+               Buckets: 4096  Batches: 1  Memory Usage: 122kB
+               ->  Bitmap Heap Scan on cake_order co  (cost=842.89..1467.72 rows=2066 width=10) (actual time=0.261..0.776 rows=2081 loops=1)
+                     Recheck Cond: ((due_date >= (CURRENT_DATE - 30)) AND (due_date <= CURRENT_DATE))
+                     Filter: (status <> 'CANCELLED'::text)
+                     Rows Removed by Filter: 103
+                     Heap Blocks: exact=26
+                     ->  Bitmap Index Scan on idx_cake_order_branch_due  (cost=0.00..842.38 rows=2153 width=0) (actual time=0.247..0.248 rows=2184 loops=1)
+                           Index Cond: ((due_date >= (CURRENT_DATE - 30)) AND (due_date <= CURRENT_DATE))
+ Planning Time: 0.399 ms
+ Execution Time: 17.487 ms
+(17 rows)
+
+--- BEFORE: Q6 cancellation rate per branch ---
+                                                                  QUERY PLAN                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1847.83..1847.84 rows=4 width=66) (actual time=18.748..18.751 rows=4 loops=1)
+   Sort Key: (round(((100.0 * (count(*) FILTER (WHERE (co.status = 'CANCELLED'::text)))::numeric) / (NULLIF(count(*), 0))::numeric), 2)) DESC
+   Sort Method: quicksort  Memory: 25kB
+   ->  HashAggregate  (cost=1847.69..1847.79 rows=4 width=66) (actual time=18.736..18.742 rows=4 loops=1)
+         Group Key: b.name
+         Batches: 1  Memory Usage: 24kB
+         ->  Hash Join  (cost=1.09..1345.61 rows=50208 width=27) (actual time=0.014..11.822 rows=50208 loops=1)
+               Hash Cond: (co.branch_id = b.branch_id)
+               ->  Seq Scan on cake_order co  (cost=0.00..1073.08 rows=50208 width=13) (actual time=0.004..3.467 rows=50208 loops=1)
+               ->  Hash  (cost=1.04..1.04 rows=4 width=22) (actual time=0.006..0.006 rows=4 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     ->  Seq Scan on branch b  (cost=0.00..1.04 rows=4 width=22) (actual time=0.002..0.003 rows=4 loops=1)
+ Planning Time: 0.169 ms
+ Execution Time: 18.782 ms
+(14 rows)
+
+
+==> [2/4] Adding analytical indexes + ANALYZE
+==> Adding analytical indexes...
+CREATE INDEX
+CREATE INDEX
+CREATE INDEX
+VACUUM
+VACUUM
+ANALYZE
+ANALYZE
+==> Done. Now run explain_after.sql to capture the improved plans.
+
+==> [3/4] EXPLAIN ANALYZE AFTER indexes
+Pager usage is off.
+--- AFTER: Q1 remaining capacity per branch, next 7 days ---
+                                                                             QUERY PLAN                                                                              
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ GroupAggregate  (cost=99.59..100.39 rows=32 width=34) (actual time=0.368..0.413 rows=32 loops=1)
+   Group Key: b.name, dc.cap_date, dc.max_units
+   ->  Sort  (cost=99.59..99.67 rows=32 width=28) (actual time=0.361..0.374 rows=322 loops=1)
+         Sort Key: b.name, dc.cap_date, dc.max_units
+         Sort Method: quicksort  Memory: 42kB
+         ->  Hash Right Join  (cost=69.00..98.79 rows=32 width=28) (actual time=0.104..0.209 rows=322 loops=1)
+               Hash Cond: ((co.branch_id = b.branch_id) AND (co.due_date = dc.cap_date))
+               ->  Index Only Scan using idx_order_due_date_cover on cake_order co  (cost=0.42..24.82 rows=357 width=10) (actual time=0.022..0.075 rows=322 loops=1)
+                     Index Cond: ((due_date >= CURRENT_DATE) AND (due_date <= (CURRENT_DATE + 7)))
+                     Filter: (status <> 'CANCELLED'::text)
+                     Rows Removed by Filter: 12
+                     Heap Fetches: 0
+               ->  Hash  (cost=68.10..68.10 rows=32 width=30) (actual time=0.071..0.071 rows=32 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 10kB
+                     ->  Nested Loop  (cost=4.39..68.10 rows=32 width=30) (actual time=0.036..0.056 rows=32 loops=1)
+                           ->  Seq Scan on branch b  (cost=0.00..1.04 rows=4 width=22) (actual time=0.003..0.003 rows=4 loops=1)
+                           ->  Bitmap Heap Scan on daily_capacity dc  (cost=4.39..16.68 rows=8 width=12) (actual time=0.010..0.011 rows=8 loops=4)
+                                 Recheck Cond: ((b.branch_id = branch_id) AND (cap_date >= CURRENT_DATE) AND (cap_date <= (CURRENT_DATE + 7)))
+                                 Heap Blocks: exact=4
+                                 ->  Bitmap Index Scan on daily_capacity_pkey  (cost=0.00..4.39 rows=8 width=0) (actual time=0.007..0.007 rows=8 loops=4)
+                                       Index Cond: ((branch_id = b.branch_id) AND (cap_date >= CURRENT_DATE) AND (cap_date <= (CURRENT_DATE + 7)))
+ Planning Time: 1.017 ms
+ Execution Time: 0.500 ms
+(23 rows)
+
+--- AFTER: Q2 orders per cake type per month, last 90 days ---
+                                                                               QUERY PLAN                                                                                
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=519.16..526.53 rows=2948 width=49) (actual time=4.845..4.848 rows=12 loops=1)
+   Sort Key: (to_char((co.order_date)::timestamp with time zone, 'YYYY-MM'::text)), ct.name
+   Sort Method: quicksort  Memory: 25kB
+   ->  HashAggregate  (cost=305.05..349.27 rows=2948 width=49) (actual time=4.821..4.833 rows=12 loops=1)
+         Group Key: to_char((co.order_date)::timestamp with time zone, 'YYYY-MM'::text), ct.name
+         Batches: 1  Memory Usage: 121kB
+         ->  Hash Join  (cost=1.39..256.83 rows=6430 width=41) (actual time=0.101..3.629 rows=6398 loops=1)
+               Hash Cond: (co.cake_type_id = ct.cake_type_id)
+               ->  Index Only Scan using idx_order_order_date_cover on cake_order co  (cost=0.29..188.82 rows=6430 width=8) (actual time=0.026..0.851 rows=6398 loops=1)
+                     Index Cond: (order_date >= (CURRENT_DATE - 90))
+                     Heap Fetches: 48
+               ->  Hash  (cost=1.04..1.04 rows=4 width=13) (actual time=0.006..0.006 rows=4 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     ->  Seq Scan on cake_type ct  (cost=0.00..1.04 rows=4 width=13) (actual time=0.003..0.003 rows=4 loops=1)
+ Planning Time: 0.259 ms
+ Execution Time: 4.902 ms
+(16 rows)
+
+--- AFTER: Q3 revenue per branch, orders due in the last 30 days ---
+                                                                                  QUERY PLAN                                                                                  
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=2281.67..2281.68 rows=4 width=50) (actual time=18.427..18.430 rows=4 loops=1)
+   Sort Key: (sum(p.amount_ngn)) DESC
+   Sort Method: quicksort  Memory: 25kB
+   ->  HashAggregate  (cost=2281.58..2281.63 rows=4 width=50) (actual time=18.409..18.413 rows=4 loops=1)
+         Group Key: b.name
+         Batches: 1  Memory Usage: 24kB
+         ->  Hash Join  (cost=160.45..2261.28 rows=4059 width=24) (actual time=16.410..17.778 rows=4162 loops=1)
+               Hash Cond: (co.branch_id = b.branch_id)
+               ->  Hash Join  (cost=159.36..2238.25 rows=4059 width=10) (actual time=16.397..17.305 rows=4162 loops=1)
+                     Hash Cond: (p.order_id = co.order_id)
+                     ->  Seq Scan on payment p  (cost=0.00..1821.90 rows=97890 width=10) (actual time=0.003..7.897 rows=97890 loops=1)
+                     ->  Hash  (cost=133.34..133.34 rows=2082 width=8) (actual time=1.314..1.315 rows=2081 loops=1)
+                           Buckets: 4096  Batches: 1  Memory Usage: 114kB
+                           ->  Index Scan using idx_order_due_date_cover on cake_order co  (cost=0.42..133.34 rows=2082 width=8) (actual time=0.028..1.032 rows=2081 loops=1)
+                                 Index Cond: ((due_date >= (CURRENT_DATE - 30)) AND (due_date <= CURRENT_DATE))
+                                 Filter: (status <> 'CANCELLED'::text)
+                                 Rows Removed by Filter: 103
+               ->  Hash  (cost=1.04..1.04 rows=4 width=22) (actual time=0.008..0.008 rows=4 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     ->  Seq Scan on branch b  (cost=0.00..1.04 rows=4 width=22) (actual time=0.004..0.005 rows=4 loops=1)
+ Planning Time: 0.633 ms
+ Execution Time: 18.467 ms
+(22 rows)
+
+--- AFTER: Q4 most popular flavours ---
+                                                                  QUERY PLAN                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=9475.83..9475.85 rows=8 width=25) (actual time=104.178..104.181 rows=8 loops=1)
+   Sort Key: (count(*)) DESC
+   Sort Method: quicksort  Memory: 25kB
+   ->  GroupAggregate  (cost=8624.51..9475.71 rows=8 width=25) (actual time=91.594..104.169 rows=8 loops=1)
+         Group Key: f.name
+         ->  Sort  (cost=8624.51..8837.29 rows=85112 width=13) (actual time=89.645..97.016 rows=85112 loops=1)
+               Sort Key: f.name, ofl.order_id
+               Sort Method: external merge  Disk: 2008kB
+               ->  Hash Join  (cost=1.18..1655.08 rows=85112 width=13) (actual time=0.015..16.559 rows=85112 loops=1)
+                     Hash Cond: (ofl.flavour_id = f.flavour_id)
+                     ->  Seq Scan on order_flavour ofl  (cost=0.00..1312.12 rows=85112 width=8) (actual time=0.006..5.398 rows=85112 loops=1)
+                     ->  Hash  (cost=1.08..1.08 rows=8 width=13) (actual time=0.007..0.007 rows=8 loops=1)
+                           Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                           ->  Seq Scan on flavour f  (cost=0.00..1.08 rows=8 width=13) (actual time=0.003..0.004 rows=8 loops=1)
+ Planning Time: 0.352 ms
+ Execution Time: 104.619 ms
+(16 rows)
+
+--- AFTER: Q5 average deposit percentage, orders due in the last 30 days ---
+                                                                            QUERY PLAN                                                                             
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Aggregate  (cost=2374.09..2374.10 rows=1 width=32) (actual time=12.879..12.881 rows=1 loops=1)
+   ->  Hash Join  (cost=159.36..2358.40 rows=2092 width=12) (actual time=11.762..12.421 rows=2081 loops=1)
+         Hash Cond: (dep.order_id = co.order_id)
+         ->  Seq Scan on payment dep  (cost=0.00..2066.62 rows=50439 width=10) (actual time=0.004..8.281 rows=50166 loops=1)
+               Filter: (kind = 'deposit'::text)
+               Rows Removed by Filter: 47724
+         ->  Hash  (cost=133.34..133.34 rows=2082 width=10) (actual time=0.668..0.669 rows=2081 loops=1)
+               Buckets: 4096  Batches: 1  Memory Usage: 122kB
+               ->  Index Scan using idx_order_due_date_cover on cake_order co  (cost=0.42..133.34 rows=2082 width=10) (actual time=0.008..0.435 rows=2081 loops=1)
+                     Index Cond: ((due_date >= (CURRENT_DATE - 30)) AND (due_date <= CURRENT_DATE))
+                     Filter: (status <> 'CANCELLED'::text)
+                     Rows Removed by Filter: 103
+ Planning Time: 0.233 ms
+ Execution Time: 12.903 ms
+(14 rows)
+
+--- AFTER: Q6 cancellation rate per branch ---
+                                                                  QUERY PLAN                                                                  
+----------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1847.83..1847.84 rows=4 width=66) (actual time=17.763..17.765 rows=4 loops=1)
+   Sort Key: (round(((100.0 * (count(*) FILTER (WHERE (co.status = 'CANCELLED'::text)))::numeric) / (NULLIF(count(*), 0))::numeric), 2)) DESC
+   Sort Method: quicksort  Memory: 25kB
+   ->  HashAggregate  (cost=1847.69..1847.79 rows=4 width=66) (actual time=17.755..17.759 rows=4 loops=1)
+         Group Key: b.name
+         Batches: 1  Memory Usage: 24kB
+         ->  Hash Join  (cost=1.09..1345.61 rows=50208 width=27) (actual time=0.014..11.011 rows=50208 loops=1)
+               Hash Cond: (co.branch_id = b.branch_id)
+               ->  Seq Scan on cake_order co  (cost=0.00..1073.08 rows=50208 width=13) (actual time=0.003..2.818 rows=50208 loops=1)
+               ->  Hash  (cost=1.04..1.04 rows=4 width=22) (actual time=0.005..0.006 rows=4 loops=1)
+                     Buckets: 1024  Batches: 1  Memory Usage: 9kB
+                     ->  Seq Scan on branch b  (cost=0.00..1.04 rows=4 width=22) (actual time=0.002..0.003 rows=4 loops=1)
+ Planning Time: 0.163 ms
+ Execution Time: 17.790 ms
+(14 rows)
+
+
+==> [4/4] Run the actual queries (with result rows)
+Pager usage is off.
+Timing is on.
+--- Q1: remaining capacity per branch, next 7 days ---
+       branch        |  cap_date  | max_units | used_units | remaining_units 
+---------------------+------------+-----------+------------+-----------------
+ SweetCrust Bodija   | 2026-11-12 |        20 |         17 |               3
+ SweetCrust Bodija   | 2026-11-13 |        20 |         10 |              10
+ SweetCrust Bodija   | 2026-11-14 |        20 |         10 |              10
+ SweetCrust Bodija   | 2026-11-15 |        20 |          9 |              11
+ SweetCrust Bodija   | 2026-11-16 |        20 |         12 |               8
+ SweetCrust Bodija   | 2026-11-17 |        20 |         10 |              10
+ SweetCrust Bodija   | 2026-11-18 |        20 |          7 |              13
+ SweetCrust Bodija   | 2026-11-19 |        20 |         13 |               7
+ SweetCrust Ikeja    | 2026-11-12 |        35 |         34 |               1
+ SweetCrust Ikeja    | 2026-11-13 |        35 |         18 |              17
+ SweetCrust Ikeja    | 2026-11-14 |        35 |         19 |              16
+ SweetCrust Ikeja    | 2026-11-15 |        35 |         20 |              15
+ SweetCrust Ikeja    | 2026-11-16 |        35 |         17 |              18
+ SweetCrust Ikeja    | 2026-11-17 |        35 |         18 |              17
+ SweetCrust Ikeja    | 2026-11-18 |        35 |         18 |              17
+ SweetCrust Ikeja    | 2026-11-19 |        35 |         17 |              18
+ SweetCrust Lekki    | 2026-11-12 |        40 |         37 |               3
+ SweetCrust Lekki    | 2026-11-13 |        40 |         21 |              19
+ SweetCrust Lekki    | 2026-11-14 |        40 |         23 |              17
+ SweetCrust Lekki    | 2026-11-15 |        40 |         21 |              19
+ SweetCrust Lekki    | 2026-11-16 |        40 |         20 |              20
+ SweetCrust Lekki    | 2026-11-17 |        40 |         18 |              22
+ SweetCrust Lekki    | 2026-11-18 |        40 |         21 |              19
+ SweetCrust Lekki    | 2026-11-19 |        40 |         20 |              20
+ SweetCrust Surulere | 2026-11-12 |        25 |         25 |               0
+ SweetCrust Surulere | 2026-11-13 |        25 |         13 |              12
+ SweetCrust Surulere | 2026-11-14 |        25 |         13 |              12
+ SweetCrust Surulere | 2026-11-15 |        25 |         14 |              11
+ SweetCrust Surulere | 2026-11-16 |        25 |         13 |              12
+ SweetCrust Surulere | 2026-11-17 |        25 |         14 |              11
+ SweetCrust Surulere | 2026-11-18 |        25 |         13 |              12
+ SweetCrust Surulere | 2026-11-19 |        25 |         14 |              11
+(32 rows)
+
+Time: 2.610 ms
+--- Q2: orders per cake type per month ---
+ yyyymm  | cake_type  | orders 
+---------+------------+--------
+ 2026-08 | birthday   |    683
+ 2026-08 | corporate  |    221
+ 2026-08 | graduation |    326
+ 2026-09 | birthday   |   1111
+ 2026-09 | corporate  |    445
+ 2026-09 | graduation |    491
+ 2026-10 | birthday   |   1160
+ 2026-10 | corporate  |    470
+ 2026-10 | graduation |    525
+ 2026-11 | birthday   |    534
+ 2026-11 | corporate  |    200
+ 2026-11 | graduation |    232
+(12 rows)
+
+Time: 4.299 ms
+--- Q3: revenue per branch ---
+       branch        | revenue_ngn 
+---------------------+-------------
+ SweetCrust Lekki    | 34579000.00
+ SweetCrust Ikeja    | 30162000.00
+ SweetCrust Surulere | 22388000.00
+ SweetCrust Bodija   | 17183000.00
+(4 rows)
+
+Time: 11.060 ms
+--- Q4: most popular flavours ---
+  flavour   | tier_uses | orders_using_it 
+------------+-----------+-----------------
+ pound cake |     10760 |            9875
+ carrot     |     10732 |            9875
+ red velvet |     10683 |            9833
+ coconut    |     10672 |            9845
+ lemon      |     10667 |            9778
+ chocolate  |     10605 |            9758
+ fruit cake |     10604 |            9783
+ vanilla    |     10389 |            9563
+(8 rows)
+
+Time: 88.810 ms
+--- Q5: average deposit percentage ---
+ avg_deposit_pct 
+-----------------
+           50.00
+(1 row)
+
+Time: 10.213 ms
+--- Q6: cancellation rate (overall + per branch) ---
+       branch        | cancelled | total | cancel_rate_pct 
+---------------------+-----------+-------+-----------------
+ SweetCrust Bodija   |       378 |  8582 |            4.40
+ SweetCrust Ikeja    |       579 | 14449 |            4.01
+ SweetCrust Lekki    |       661 | 16547 |            3.99
+ SweetCrust Surulere |       404 | 10630 |            3.80
+(4 rows)
+
+Time: 15.807 ms
+--- Q7: daily order volume + capacity utilisation (last 30 days) ---
+  cap_date  |       branch        | max_units | used_units | utilisation_pct 
+------------+---------------------+-----------+------------+-----------------
+ 2026-11-12 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-11-12 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-11-12 | SweetCrust Lekki    |        40 |         37 |            92.5
+ 2026-11-12 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-11 | SweetCrust Bodija   |        20 |         15 |            75.0
+ 2026-11-11 | SweetCrust Ikeja    |        35 |         29 |            82.9
+ 2026-11-11 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-11-11 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-10 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-10 | SweetCrust Ikeja    |        35 |         28 |            80.0
+ 2026-11-10 | SweetCrust Lekki    |        40 |         33 |            82.5
+ 2026-11-10 | SweetCrust Surulere |        25 |         23 |            92.0
+ 2026-11-09 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-11-09 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-11-09 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-11-09 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-08 | SweetCrust Bodija   |        20 |         18 |            90.0
+ 2026-11-08 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-11-08 | SweetCrust Lekki    |        40 |         39 |            97.5
+ 2026-11-08 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-07 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-07 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-11-07 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-11-07 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-06 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-06 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-11-06 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-11-06 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-05 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-05 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-11-05 | SweetCrust Lekki    |        40 |         37 |            92.5
+ 2026-11-05 | SweetCrust Surulere |        25 |         22 |            88.0
+ 2026-11-04 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-04 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-11-04 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-11-04 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-03 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-03 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-11-03 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-11-03 | SweetCrust Surulere |        25 |         21 |            84.0
+ 2026-11-02 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-11-02 | SweetCrust Ikeja    |        35 |         33 |            94.3
+ 2026-11-02 | SweetCrust Lekki    |        40 |         39 |            97.5
+ 2026-11-02 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-01 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-01 | SweetCrust Ikeja    |        35 |         26 |            74.3
+ 2026-11-01 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-11-01 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-31 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-31 | SweetCrust Ikeja    |        35 |         32 |            91.4
+ 2026-10-31 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-10-31 | SweetCrust Surulere |        25 |         21 |            84.0
+ 2026-10-30 | SweetCrust Bodija   |        20 |         15 |            75.0
+ 2026-10-30 | SweetCrust Ikeja    |        35 |         33 |            94.3
+ 2026-10-30 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-10-30 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-10-29 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-10-29 | SweetCrust Ikeja    |        35 |         30 |            85.7
+ 2026-10-29 | SweetCrust Lekki    |        40 |         35 |            87.5
+ 2026-10-29 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-28 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-28 | SweetCrust Ikeja    |        35 |         32 |            91.4
+ 2026-10-28 | SweetCrust Lekki    |        40 |         35 |            87.5
+ 2026-10-28 | SweetCrust Surulere |        25 |         22 |            88.0
+ 2026-10-27 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-27 | SweetCrust Ikeja    |        35 |         32 |            91.4
+ 2026-10-27 | SweetCrust Lekki    |        40 |         33 |            82.5
+ 2026-10-27 | SweetCrust Surulere |        25 |         22 |            88.0
+ 2026-10-26 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-26 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-10-26 | SweetCrust Lekki    |        40 |         39 |            97.5
+ 2026-10-26 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-25 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-25 | SweetCrust Ikeja    |        35 |         32 |            91.4
+ 2026-10-25 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-10-25 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-10-24 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-24 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-10-24 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-10-24 | SweetCrust Surulere |        25 |         22 |            88.0
+ 2026-10-23 | SweetCrust Bodija   |        20 |         18 |            90.0
+ 2026-10-23 | SweetCrust Ikeja    |        35 |         33 |            94.3
+ 2026-10-23 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-10-23 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-22 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-10-22 | SweetCrust Ikeja    |        35 |         30 |            85.7
+ 2026-10-22 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-10-22 | SweetCrust Surulere |        25 |         23 |            92.0
+ 2026-10-21 | SweetCrust Bodija   |        20 |         13 |            65.0
+ 2026-10-21 | SweetCrust Ikeja    |        35 |         32 |            91.4
+ 2026-10-21 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-10-21 | SweetCrust Surulere |        25 |         22 |            88.0
+ 2026-10-20 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-20 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-10-20 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-10-20 | SweetCrust Surulere |        25 |         21 |            84.0
+ 2026-10-19 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-19 | SweetCrust Ikeja    |        35 |         33 |            94.3
+ 2026-10-19 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-10-19 | SweetCrust Surulere |        25 |         23 |            92.0
+ 2026-10-18 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-18 | SweetCrust Ikeja    |        35 |         31 |            88.6
+ 2026-10-18 | SweetCrust Lekki    |        40 |         39 |            97.5
+ 2026-10-18 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-10-17 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-17 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-10-17 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-10-17 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-10-16 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-16 | SweetCrust Ikeja    |        35 |         29 |            82.9
+ 2026-10-16 | SweetCrust Lekki    |        40 |         37 |            92.5
+ 2026-10-16 | SweetCrust Surulere |        25 |         23 |            92.0
+ 2026-10-15 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-10-15 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-10-15 | SweetCrust Lekki    |        40 |         37 |            92.5
+ 2026-10-15 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-14 | SweetCrust Bodija   |        20 |         16 |            80.0
+ 2026-10-14 | SweetCrust Ikeja    |        35 |         31 |            88.6
+ 2026-10-14 | SweetCrust Lekki    |        40 |         34 |            85.0
+ 2026-10-14 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-13 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-13 | SweetCrust Ikeja    |        35 |         31 |            88.6
+ 2026-10-13 | SweetCrust Lekki    |        40 |         36 |            90.0
+ 2026-10-13 | SweetCrust Surulere |        25 |         20 |            80.0
+(124 rows)
+
+Time: 2.070 ms
+
+==> Portfolio 2 done.
+    1. Copy each EXPLAIN ANALYZE block from explain_before.log
+       and explain_after.log into before_after_table.md
+    2. Copy the query result rows from queries.log
+    3. Screenshot the before/after Execution Time deltas
+    4. Commit:
+    git add portfolio-2-query-optimisation/ && git commit -m 'P2: queries + index optimisation EXPLAIN before/after'

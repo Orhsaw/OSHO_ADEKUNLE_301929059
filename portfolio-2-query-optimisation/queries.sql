@@ -1,0 +1,98 @@
+-- =====================================================================
+-- Portfolio 2 — queries.sql
+-- 7 analytical queries on SweetCrust Bakery data.
+--   sudo runuser -u postgres -- psql -d sweetcrust -f queries.sql
+-- =====================================================================
+
+\pset pager off
+\timing on
+
+-- Q1: Remaining cake-baking capacity per branch for the next 7 days
+\echo '--- Q1: remaining capacity per branch, next 7 days ---'
+SELECT  b.name AS branch,
+        dc.cap_date,
+        dc.max_units,
+        COALESCE(SUM(co.tiers),0)        AS used_units,
+        dc.max_units - COALESCE(SUM(co.tiers),0) AS remaining_units
+FROM    branch b
+JOIN    daily_capacity dc ON dc.branch_id = b.branch_id
+LEFT JOIN cake_order co
+       ON co.branch_id = b.branch_id
+      AND co.due_date   = dc.cap_date
+      AND co.due_date   BETWEEN CURRENT_DATE AND CURRENT_DATE + 7
+      AND co.status    <> 'CANCELLED'
+WHERE   dc.cap_date BETWEEN CURRENT_DATE AND CURRENT_DATE + 7
+GROUP BY b.name, dc.cap_date, dc.max_units
+ORDER BY b.name, dc.cap_date;
+
+-- Q2: Orders per cake type per month, last 90 days
+\echo '--- Q2: orders per cake type per month ---'
+SELECT  to_char(co.order_date,'YYYY-MM') AS yyyymm,
+        ct.name                          AS cake_type,
+        COUNT(*)                         AS orders
+FROM    cake_order co
+JOIN    cake_type  ct ON ct.cake_type_id = co.cake_type_id
+WHERE   co.order_date >= CURRENT_DATE - 90
+GROUP BY 1,2
+ORDER BY 1,2;
+
+-- Q3: Revenue per branch for orders due in the last 30 days (non-cancelled)
+\echo '--- Q3: revenue per branch ---'
+SELECT  b.name AS branch,
+        SUM(p.amount_ngn) AS revenue_ngn
+FROM    payment p
+JOIN    cake_order co ON co.order_id = p.order_id
+JOIN    branch     b  ON b.branch_id = co.branch_id
+WHERE   co.status <> 'CANCELLED'
+  AND   co.due_date BETWEEN CURRENT_DATE - 30 AND CURRENT_DATE
+GROUP BY b.name
+ORDER BY revenue_ngn DESC;
+
+-- Q4: Most popular flavours (by appearance across order tiers)
+\echo '--- Q4: most popular flavours ---'
+SELECT  f.name  AS flavour,
+        COUNT(*) AS tier_uses,
+        COUNT(DISTINCT ofl.order_id) AS orders_using_it
+FROM    order_flavour ofl
+JOIN    flavour f ON f.flavour_id = ofl.flavour_id
+GROUP BY f.name
+ORDER BY tier_uses DESC;
+
+-- Q5: Average deposit percentage
+\echo '--- Q5: average deposit percentage ---'
+SELECT  ROUND(AVG(dep.amount_ngn / co.unit_price_ngn * 100),2) AS avg_deposit_pct
+FROM    payment dep
+JOIN    cake_order co ON co.order_id = dep.order_id
+WHERE   dep.kind = 'deposit'
+  AND   co.status <> 'CANCELLED'
+  AND   co.due_date BETWEEN CURRENT_DATE - 30 AND CURRENT_DATE;
+
+-- Q6: Cancellation rate (overall + per branch)
+\echo '--- Q6: cancellation rate (overall + per branch) ---'
+SELECT  b.name AS branch,
+        COUNT(*) FILTER (WHERE co.status='CANCELLED') AS cancelled,
+        COUNT(*)                                        AS total,
+        ROUND(100.0 * COUNT(*) FILTER (WHERE co.status='CANCELLED')
+              / NULLIF(COUNT(*),0),2)                    AS cancel_rate_pct
+FROM    cake_order co
+JOIN    branch b ON b.branch_id = co.branch_id
+GROUP BY b.name
+ORDER BY cancel_rate_pct DESC;
+
+-- Q7: Daily order volume for the last 30 days (capacity utilisation trend)
+\echo '--- Q7: daily order volume + capacity utilisation (last 30 days) ---'
+SELECT  dc.cap_date,
+        b.name AS branch,
+        dc.max_units,
+        COALESCE(SUM(co.tiers),0) AS used_units,
+        ROUND(100.0 * COALESCE(SUM(co.tiers),0) / dc.max_units,1) AS utilisation_pct
+FROM    daily_capacity dc
+JOIN    branch b ON b.branch_id = dc.branch_id
+LEFT JOIN cake_order co
+       ON co.branch_id = b.branch_id
+      AND co.due_date  = dc.cap_date
+      AND co.status   <> 'CANCELLED'
+WHERE   dc.cap_date >= CURRENT_DATE - INTERVAL '30 days'
+  AND   dc.cap_date <= CURRENT_DATE
+GROUP BY dc.cap_date, b.name, dc.max_units
+ORDER BY dc.cap_date DESC, b.name;

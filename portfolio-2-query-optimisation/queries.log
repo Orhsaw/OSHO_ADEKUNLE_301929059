@@ -1,0 +1,229 @@
+Pager usage is off.
+Timing is on.
+--- Q1: remaining capacity per branch, next 7 days ---
+       branch        |  cap_date  | max_units | used_units | remaining_units 
+---------------------+------------+-----------+------------+-----------------
+ SweetCrust Bodija   | 2026-11-12 |        20 |         17 |               3
+ SweetCrust Bodija   | 2026-11-13 |        20 |         10 |              10
+ SweetCrust Bodija   | 2026-11-14 |        20 |         10 |              10
+ SweetCrust Bodija   | 2026-11-15 |        20 |          9 |              11
+ SweetCrust Bodija   | 2026-11-16 |        20 |         12 |               8
+ SweetCrust Bodija   | 2026-11-17 |        20 |         10 |              10
+ SweetCrust Bodija   | 2026-11-18 |        20 |          7 |              13
+ SweetCrust Bodija   | 2026-11-19 |        20 |         13 |               7
+ SweetCrust Ikeja    | 2026-11-12 |        35 |         34 |               1
+ SweetCrust Ikeja    | 2026-11-13 |        35 |         18 |              17
+ SweetCrust Ikeja    | 2026-11-14 |        35 |         19 |              16
+ SweetCrust Ikeja    | 2026-11-15 |        35 |         20 |              15
+ SweetCrust Ikeja    | 2026-11-16 |        35 |         17 |              18
+ SweetCrust Ikeja    | 2026-11-17 |        35 |         18 |              17
+ SweetCrust Ikeja    | 2026-11-18 |        35 |         18 |              17
+ SweetCrust Ikeja    | 2026-11-19 |        35 |         17 |              18
+ SweetCrust Lekki    | 2026-11-12 |        40 |         37 |               3
+ SweetCrust Lekki    | 2026-11-13 |        40 |         21 |              19
+ SweetCrust Lekki    | 2026-11-14 |        40 |         23 |              17
+ SweetCrust Lekki    | 2026-11-15 |        40 |         21 |              19
+ SweetCrust Lekki    | 2026-11-16 |        40 |         20 |              20
+ SweetCrust Lekki    | 2026-11-17 |        40 |         18 |              22
+ SweetCrust Lekki    | 2026-11-18 |        40 |         21 |              19
+ SweetCrust Lekki    | 2026-11-19 |        40 |         20 |              20
+ SweetCrust Surulere | 2026-11-12 |        25 |         25 |               0
+ SweetCrust Surulere | 2026-11-13 |        25 |         13 |              12
+ SweetCrust Surulere | 2026-11-14 |        25 |         13 |              12
+ SweetCrust Surulere | 2026-11-15 |        25 |         14 |              11
+ SweetCrust Surulere | 2026-11-16 |        25 |         13 |              12
+ SweetCrust Surulere | 2026-11-17 |        25 |         14 |              11
+ SweetCrust Surulere | 2026-11-18 |        25 |         13 |              12
+ SweetCrust Surulere | 2026-11-19 |        25 |         14 |              11
+(32 rows)
+
+Time: 2.610 ms
+--- Q2: orders per cake type per month ---
+ yyyymm  | cake_type  | orders 
+---------+------------+--------
+ 2026-08 | birthday   |    683
+ 2026-08 | corporate  |    221
+ 2026-08 | graduation |    326
+ 2026-09 | birthday   |   1111
+ 2026-09 | corporate  |    445
+ 2026-09 | graduation |    491
+ 2026-10 | birthday   |   1160
+ 2026-10 | corporate  |    470
+ 2026-10 | graduation |    525
+ 2026-11 | birthday   |    534
+ 2026-11 | corporate  |    200
+ 2026-11 | graduation |    232
+(12 rows)
+
+Time: 4.299 ms
+--- Q3: revenue per branch ---
+       branch        | revenue_ngn 
+---------------------+-------------
+ SweetCrust Lekki    | 34579000.00
+ SweetCrust Ikeja    | 30162000.00
+ SweetCrust Surulere | 22388000.00
+ SweetCrust Bodija   | 17183000.00
+(4 rows)
+
+Time: 11.060 ms
+--- Q4: most popular flavours ---
+  flavour   | tier_uses | orders_using_it 
+------------+-----------+-----------------
+ pound cake |     10760 |            9875
+ carrot     |     10732 |            9875
+ red velvet |     10683 |            9833
+ coconut    |     10672 |            9845
+ lemon      |     10667 |            9778
+ chocolate  |     10605 |            9758
+ fruit cake |     10604 |            9783
+ vanilla    |     10389 |            9563
+(8 rows)
+
+Time: 88.810 ms
+--- Q5: average deposit percentage ---
+ avg_deposit_pct 
+-----------------
+           50.00
+(1 row)
+
+Time: 10.213 ms
+--- Q6: cancellation rate (overall + per branch) ---
+       branch        | cancelled | total | cancel_rate_pct 
+---------------------+-----------+-------+-----------------
+ SweetCrust Bodija   |       378 |  8582 |            4.40
+ SweetCrust Ikeja    |       579 | 14449 |            4.01
+ SweetCrust Lekki    |       661 | 16547 |            3.99
+ SweetCrust Surulere |       404 | 10630 |            3.80
+(4 rows)
+
+Time: 15.807 ms
+--- Q7: daily order volume + capacity utilisation (last 30 days) ---
+  cap_date  |       branch        | max_units | used_units | utilisation_pct 
+------------+---------------------+-----------+------------+-----------------
+ 2026-11-12 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-11-12 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-11-12 | SweetCrust Lekki    |        40 |         37 |            92.5
+ 2026-11-12 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-11 | SweetCrust Bodija   |        20 |         15 |            75.0
+ 2026-11-11 | SweetCrust Ikeja    |        35 |         29 |            82.9
+ 2026-11-11 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-11-11 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-10 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-10 | SweetCrust Ikeja    |        35 |         28 |            80.0
+ 2026-11-10 | SweetCrust Lekki    |        40 |         33 |            82.5
+ 2026-11-10 | SweetCrust Surulere |        25 |         23 |            92.0
+ 2026-11-09 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-11-09 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-11-09 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-11-09 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-08 | SweetCrust Bodija   |        20 |         18 |            90.0
+ 2026-11-08 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-11-08 | SweetCrust Lekki    |        40 |         39 |            97.5
+ 2026-11-08 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-07 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-07 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-11-07 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-11-07 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-06 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-06 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-11-06 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-11-06 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-05 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-05 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-11-05 | SweetCrust Lekki    |        40 |         37 |            92.5
+ 2026-11-05 | SweetCrust Surulere |        25 |         22 |            88.0
+ 2026-11-04 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-04 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-11-04 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-11-04 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-03 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-03 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-11-03 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-11-03 | SweetCrust Surulere |        25 |         21 |            84.0
+ 2026-11-02 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-11-02 | SweetCrust Ikeja    |        35 |         33 |            94.3
+ 2026-11-02 | SweetCrust Lekki    |        40 |         39 |            97.5
+ 2026-11-02 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-11-01 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-11-01 | SweetCrust Ikeja    |        35 |         26 |            74.3
+ 2026-11-01 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-11-01 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-31 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-31 | SweetCrust Ikeja    |        35 |         32 |            91.4
+ 2026-10-31 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-10-31 | SweetCrust Surulere |        25 |         21 |            84.0
+ 2026-10-30 | SweetCrust Bodija   |        20 |         15 |            75.0
+ 2026-10-30 | SweetCrust Ikeja    |        35 |         33 |            94.3
+ 2026-10-30 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-10-30 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-10-29 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-10-29 | SweetCrust Ikeja    |        35 |         30 |            85.7
+ 2026-10-29 | SweetCrust Lekki    |        40 |         35 |            87.5
+ 2026-10-29 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-28 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-28 | SweetCrust Ikeja    |        35 |         32 |            91.4
+ 2026-10-28 | SweetCrust Lekki    |        40 |         35 |            87.5
+ 2026-10-28 | SweetCrust Surulere |        25 |         22 |            88.0
+ 2026-10-27 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-27 | SweetCrust Ikeja    |        35 |         32 |            91.4
+ 2026-10-27 | SweetCrust Lekki    |        40 |         33 |            82.5
+ 2026-10-27 | SweetCrust Surulere |        25 |         22 |            88.0
+ 2026-10-26 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-26 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-10-26 | SweetCrust Lekki    |        40 |         39 |            97.5
+ 2026-10-26 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-25 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-25 | SweetCrust Ikeja    |        35 |         32 |            91.4
+ 2026-10-25 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-10-25 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-10-24 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-24 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-10-24 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-10-24 | SweetCrust Surulere |        25 |         22 |            88.0
+ 2026-10-23 | SweetCrust Bodija   |        20 |         18 |            90.0
+ 2026-10-23 | SweetCrust Ikeja    |        35 |         33 |            94.3
+ 2026-10-23 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-10-23 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-22 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-10-22 | SweetCrust Ikeja    |        35 |         30 |            85.7
+ 2026-10-22 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-10-22 | SweetCrust Surulere |        25 |         23 |            92.0
+ 2026-10-21 | SweetCrust Bodija   |        20 |         13 |            65.0
+ 2026-10-21 | SweetCrust Ikeja    |        35 |         32 |            91.4
+ 2026-10-21 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-10-21 | SweetCrust Surulere |        25 |         22 |            88.0
+ 2026-10-20 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-20 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-10-20 | SweetCrust Lekki    |        40 |         38 |            95.0
+ 2026-10-20 | SweetCrust Surulere |        25 |         21 |            84.0
+ 2026-10-19 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-19 | SweetCrust Ikeja    |        35 |         33 |            94.3
+ 2026-10-19 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-10-19 | SweetCrust Surulere |        25 |         23 |            92.0
+ 2026-10-18 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-18 | SweetCrust Ikeja    |        35 |         31 |            88.6
+ 2026-10-18 | SweetCrust Lekki    |        40 |         39 |            97.5
+ 2026-10-18 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-10-17 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-17 | SweetCrust Ikeja    |        35 |         35 |           100.0
+ 2026-10-17 | SweetCrust Lekki    |        40 |         40 |           100.0
+ 2026-10-17 | SweetCrust Surulere |        25 |         25 |           100.0
+ 2026-10-16 | SweetCrust Bodija   |        20 |         19 |            95.0
+ 2026-10-16 | SweetCrust Ikeja    |        35 |         29 |            82.9
+ 2026-10-16 | SweetCrust Lekki    |        40 |         37 |            92.5
+ 2026-10-16 | SweetCrust Surulere |        25 |         23 |            92.0
+ 2026-10-15 | SweetCrust Bodija   |        20 |         17 |            85.0
+ 2026-10-15 | SweetCrust Ikeja    |        35 |         34 |            97.1
+ 2026-10-15 | SweetCrust Lekki    |        40 |         37 |            92.5
+ 2026-10-15 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-14 | SweetCrust Bodija   |        20 |         16 |            80.0
+ 2026-10-14 | SweetCrust Ikeja    |        35 |         31 |            88.6
+ 2026-10-14 | SweetCrust Lekki    |        40 |         34 |            85.0
+ 2026-10-14 | SweetCrust Surulere |        25 |         24 |            96.0
+ 2026-10-13 | SweetCrust Bodija   |        20 |         20 |           100.0
+ 2026-10-13 | SweetCrust Ikeja    |        35 |         31 |            88.6
+ 2026-10-13 | SweetCrust Lekki    |        40 |         36 |            90.0
+ 2026-10-13 | SweetCrust Surulere |        25 |         20 |            80.0
+(124 rows)
+
+Time: 2.070 ms
